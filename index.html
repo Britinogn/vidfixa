@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GN Mart — Bachs Payment Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f6f7fb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+  .card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 32px;
+    width: 360px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: #666; font-size: 14px; margin: 0 0 24px; }
+  .plan {
+    border: 1px solid #e5e5e5;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .plan.selected { border-color: #6c5ce7; background: #f8f7ff; }
+  .plan-name { font-weight: 600; font-size: 15px; }
+  .plan-price { color: #444; font-size: 14px; margin-top: 2px; }
+  label { display: block; font-size: 13px; margin: 16px 0 6px; color: #333; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  button {
+    width: 100%;
+    margin-top: 22px;
+    padding: 12px;
+    background: #6c5ce7;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: not-allowed; }
+  #status {
+    margin-top: 16px;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    display: none;
+    word-break: break-word;
+  }
+  #status.error { background: #ffecec; color: #c0392b; display: block; }
+  #status.info { background: #eef4ff; color: #2456ab; display: block; }
+  #status.success { background: #eafff0; color: #1e8449; display: block; }
+  .note {
+    margin-top: 18px;
+    font-size: 11px;
+    color: #999;
+    line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>GN Mart — Creator Subscription</h1>
+  <p class="sub">Sandbox checkout test via Bachs</p>
+
+  <div class="plan selected" data-plan="premium" data-product="prod_REPLACE_PREMIUM" data-price="5.00">
+    <div class="plan-name">Premium — $5.00/mo</div>
+    <div class="plan-price">Multiple storefronts, higher product limits</div>
+  </div>
+
+  <div class="plan" data-plan="pro" data-product="prod_REPLACE_PRO" data-price="12.00">
+    <div class="plan-name">Pro — $12.00/mo</div>
+    <div class="plan-price">All Premium features + advanced analytics</div>
+  </div>
+
+  <label for="email">Customer email</label>
+  <input type="email" id="email" placeholder="creator@example.com" value="test-creator@example.com">
+
+  <label for="apiKey">Sandbox API key</label>
+  <input type="text" id="apiKey" placeholder="sk_sandbox_..." autocomplete="off">
+
+  <button id="payBtn">Continue to Bachs Checkout</button>
+
+  <div id="status"></div>
+
+  <div class="note">
+    This calls Bachs' sandbox checkout-sessions endpoint directly from the
+    browser for quick local testing only. In the real GN Mart backend,
+    this request must be made from Go (server-side), never from the
+    frontend, so the API key is never exposed to visitors.
+  </div>
+</div>
+
+<script>
+  const BASE_URL = "https://sandbox-api.bachs.io/v1/checkout-sessions";
+
+  let selectedPlan = document.querySelector(".plan.selected");
+
+  document.querySelectorAll(".plan").forEach(el => {
+    el.addEventListener("click", () => {
+      document.querySelectorAll(".plan").forEach(p => p.classList.remove("selected"));
+      el.classList.add("selected");
+      selectedPlan = el;
+    });
+  });
+
+  const statusEl = document.getElementById("status");
+  const payBtn = document.getElementById("payBtn");
+
+  function showStatus(type, message) {
+    statusEl.className = type;
+    statusEl.textContent = message;
+  }
+
+  payBtn.addEventListener("click", async () => {
+    const apiKey = document.getElementById("apiKey").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const productId = selectedPlan.dataset.product;
+
+    if (!apiKey) {
+      showStatus("error", "Enter your Bachs sandbox API key (sk_sandbox_...).");
+      return;
+    }
+    if (!email) {
+      showStatus("error", "Enter a customer email.");
+      return;
+    }
+
+    payBtn.disabled = true;
+    showStatus("info", "Creating checkout session…");
+
+    try {
+      const res = await fetch(BASE_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          product_cart: [{ product_id: productId, quantity: 1 }],
+          customer: { email },
+          return_url: window.location.href + "?status=success",
+          cancel_url: window.location.href + "?status=cancelled"
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showStatus("error", `Bachs error: ${data.message || res.status}`);
+        payBtn.disabled = false;
+        return;
+      }
+
+      showStatus("success", "Session created — redirecting to Bachs checkout…");
+      setTimeout(() => {
+        window.location.href = data.checkout_url;
+      }, 800);
+
+    } catch (err) {
+      showStatus("error", `Request failed: ${err.message}`);
+      payBtn.disabled = false;
+    }
+  });
+
+  // Show a status banner if we've just come back from checkout
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("status") === "success") {
+    showStatus("success", "Payment completed (returned from Bachs checkout).");
+  } else if (params.get("status") === "cancelled") {
+    showStatus("error", "Checkout was cancelled.");
+  }
+</script>
+
+</body>
+</html>
+
+<!-- 
+bach cli listener command 
+bachs listen --forward-to localhost:8080/api/payments/webhook --events collection.succeeded,customer.subscription.created
+
+migrate
+migrate -database "$env:DATABASE_URL" -path migrate up
+
+$env:DATABASE_URL = (Get-Content .env | Where-Object { $_ -match '^DATABASE_URL=' } | ForEach-Object { $_ -replace '^DATABASE_URL=', '' })
+if ($env:DATABASE_URL) { "DATABASE_URL is loaded" } else { "DATABASE_URL is empty" } 
+-->
