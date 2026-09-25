@@ -1,0 +1,6 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'dashboard' })
+const auth = useAuthStore()
+</script>
+
+<template><div><PageTitle title="Account" description="Your VidFixa profile."/><section class="max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-card"><div class="flex items-center gap-4"><span class="grid size-14 place-items-center rounded-full bg-red-50 text-xl font-bold text-brand-600">{{ auth.user?.full_name.slice(0, 1).toUpperCase() }}</span><div><h2 class="font-semibold">{{ auth.user?.full_name }}</h2><p class="mt-1 text-sm text-slate-500">{{ auth.user?.email }}</p></div></div><dl class="mt-7 grid gap-4 border-t border-slate-100 pt-6 sm:grid-cols-2"><div><dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Account role</dt><dd class="mt-1 text-sm font-medium capitalize">{{ auth.user?.role }}</dd></div><div><dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Member since</dt><dd class="mt-1 text-sm font-medium">{{ auth.user?.created_at ? new Date(auth.user.created_at).toLocaleDateString() : '—' }}</dd></div></dl><button class="mt-7 rounded-[10px] border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50" @click="auth.logout()">Log out</button></section></div></template>
