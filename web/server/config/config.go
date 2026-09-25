@@ -7,7 +7,7 @@ type Config struct {
 	AppEnv    string
 	AppPort   string
 	AppURL    string
-	ClientURL string
+	CorsURL string
 
 	DatabaseURL string
 
@@ -37,7 +37,7 @@ func Load() *Config {
 		AppEnv:    os.Getenv("APP_ENV"),
 		AppPort:   os.Getenv("APP_PORT"),
 		AppURL:    os.Getenv("APP_URL"),
-		ClientURL: os.Getenv("CLIENT_URL"),
+		CorsURL: os.Getenv("CORS_URL"),
 
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 

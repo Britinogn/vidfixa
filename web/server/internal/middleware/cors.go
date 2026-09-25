@@ -13,7 +13,7 @@ import (
 // swapped per environment (dev/prod) without touching code.
 func CORS(cfg *config.Config) func(next http.Handler) http.Handler {
 	return cors.Handler(cors.Options{
-		AllowedOrigins:   []string{cfg.ClientURL},
+		AllowedOrigins:   []string{cfg.CorsURL},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Authorization"},
 		ExposedHeaders:   []string{"Content-Length"},
