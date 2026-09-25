@@ -1,0 +1,7 @@
+DROP TABLE IF EXISTS processed_webhooks;
+DROP TABLE IF EXISTS payments;
+DROP TABLE IF EXISTS downloads;
+DROP TABLE IF EXISTS usage_counters;
+DROP TABLE IF EXISTS subscriptions;
+DROP TABLE IF EXISTS plans;
+DROP TABLE IF EXISTS users;
