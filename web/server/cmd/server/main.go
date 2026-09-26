@@ -81,9 +81,28 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 		}
 
 		filePath, err := downloader.Download(job.Ctx, cfg.YtdlpPath, job.URL, cfg.DownloadDir)
+		// if err != nil {
+		// 	errMsg = err.Error()
+		// 	_ = repository.UpdateDownloadStatus(context.Background(), job.ID, model.StatusFailed, nil, &errMsg)
+		// 	return err
+		// }
 		if err != nil {
-			errMsg = err.Error()
-			_ = repository.UpdateDownloadStatus(context.Background(), job.ID, model.StatusFailed, nil, &errMsg)
+			rawErr := err.Error()
+
+			// Keep the technical error in the server logs for debugging.
+			log.Printf("download failed: %s", rawErr)
+
+			// Store a human-readable error for the user.
+			errMsg = downloader.HumanizeError(err)
+
+			_ = repository.UpdateDownloadStatus(
+				context.Background(),
+				job.ID,
+				model.StatusFailed,
+				nil,
+				&errMsg,
+			)
+
 			return err
 		}
 
