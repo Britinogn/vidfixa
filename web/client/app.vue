@@ -58,6 +58,15 @@ useHead({
         'video downloader, download instagram video, download facebook video, no watermark, VidFixa',
     },
   ],
+
+  script: [
+    {
+      src: 'https://www.sabilytics.com/script.js',
+      async: true,
+      'data-site': 'w3hfo4ayyk5a',
+      'data-domain': 'vidfixa.onrender.com',
+    },
+  ],
 })
 </script>
 
