@@ -44,7 +44,8 @@ func AnonID(secret string) func(http.Handler) http.Handler {
 					Path:     "/",
 					HttpOnly: true,
 					Secure:   true,
-					SameSite: http.SameSiteLaxMode,
+					// SameSite: http.SameSiteLaxMode,
+					SameSite: http.SameSiteNoneMode,
 					Expires:  time.Now().AddDate(1, 0, 0), // 1 year
 				})
 			}
