@@ -16,7 +16,38 @@ import {
 } from '@hugeicons/core-free-icons'
 
 import { readDownloadIDs } from '~/utils/download-history'
+//
 
+// useSeoMeta({
+//   title: 'Download videos. Simple. Fast.',
+//   description:
+//     'Paste a link. Download in seconds. Instagram, Facebook, X, LinkedIn — high quality, no watermark.',
+// })
+
+// useHead({
+//   script: [
+//     {
+//       type: 'application/ld+json',
+//       children: JSON.stringify({
+//         '@context': 'https://schema.org',
+//         '@type': 'WebApplication',
+//         name: 'VidFixa',
+//         url: 'https://vidfixa.onrender.com',
+//         description:
+//           'Download videos from Instagram, Facebook, X, and LinkedIn. Fast, secure, no watermark.',
+//         applicationCategory: 'MultimediaApplication',
+//         operatingSystem: 'Any',
+//         offers: {
+//           '@type': 'Offer',
+//           price: '0',
+//           priceCurrency: 'NGN',
+//         },
+//       }),
+//     },
+//   ],
+// })
+
+//
 const auth = useAuthStore()
 const { ids } = useDownloads()
 
