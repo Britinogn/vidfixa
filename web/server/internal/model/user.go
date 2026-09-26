@@ -29,7 +29,7 @@ type RegistrationRequest struct {
 	FullName string `json:"full_name" validate:"required,min=5,max=25"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
-	Role     Role   `json:"role" validate:"required,oneof=user admin"`
+	// Role     Role   `json:"role" validate:"required,oneof=user admin"`
 }
 
 type LoginRequest struct {

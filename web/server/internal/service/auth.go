@@ -119,7 +119,7 @@ func (s *AuthService) Register(ctx context.Context, req model.RegistrationReques
 		user role.
 	*/
 
-	user, err := repository.CreateUser(ctx, fullName, email, hash, req.Role)
+	user, err := repository.CreateUser(ctx, fullName, email, hash, model.RoleUser)
 	if err != nil {
 		/*
 			The email may have been registered by another request
@@ -129,7 +129,8 @@ func (s *AuthService) Register(ctx context.Context, req model.RegistrationReques
 			that race, so we return the same email error.
 		*/
 
-		return nil, ErrEmailTaken
+		// return nil, ErrEmailTaken
+		return nil, err
 	}
 
 	/*
@@ -139,9 +140,13 @@ func (s *AuthService) Register(ctx context.Context, req model.RegistrationReques
 		The token contains the user's ID, email, and current role.
 	*/
 
+	// token, err := utils.GenerateToken(user.ID, user.Email, string(user.Role))
+	// if err != nil {
+	// 	return nil, ErrEmailTaken
+	// }
 	token, err := utils.GenerateToken(user.ID, user.Email, string(user.Role))
 	if err != nil {
-		return nil, ErrEmailTaken
+		return nil, err
 	}
 
 	return &AuthResult{

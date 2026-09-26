@@ -24,8 +24,8 @@ type Config struct {
 	BachsPlusProductID string
 	BachsProProductID  string
 
-	BACHS_SUCCESS_URL string
-	BACHS_CANCEL_URL  string
+	BachsSuccessURL string
+	BachsCancelURL  string
 
 	BcryptRounds string
 	DownloadDir  string
@@ -56,8 +56,8 @@ func Load() *Config {
 		DownloadDir:        os.Getenv("DOWNLOAD_DIR"),
 
 		// sample
-		BACHS_SUCCESS_URL: os.Getenv("BACHS_SUCCESS_URL"),
-		BACHS_CANCEL_URL:  os.Getenv("BACHS_CANCEL_URL"),
+		BachsSuccessURL: os.Getenv("BACHS_SUCCESS_URL"),
+		BachsCancelURL:  os.Getenv("BACHS_CANCEL_URL"),
 
 		BcryptRounds: os.Getenv("BCRYPT_ROUNDS"),
 	}
