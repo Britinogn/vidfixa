@@ -2,6 +2,7 @@
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import { z } from 'zod'
+import { getApiErrorMessage } from '~/utils/api-error'
 
 definePageMeta({ layout: false })
 const auth = useAuthStore()
@@ -19,9 +20,15 @@ const submit = handleSubmit(async (values) => {
     const target = typeof route.query.redirect === 'string' ? route.query.redirect : ''
     if (target.startsWith('/') && !target.startsWith('//')) await navigateTo(target)
     else await navigateTo(user.role === 'admin' ? '/admin' : '/dashboard')
+  // } catch (error) {
+  //   const response = error as { data?: string; message?: string }
+  //   formError.value = response.data || response.message || 'Could not sign in. Check your details and try again.'
+  // }
   } catch (error) {
-    const response = error as { data?: string; message?: string }
-    formError.value = response.data || response.message || 'Could not sign in. Check your details and try again.'
+    formError.value = getApiErrorMessage(
+      error,
+      'Could not sign in. Check your details and try again.',
+    )
   }
 })
 </script>
