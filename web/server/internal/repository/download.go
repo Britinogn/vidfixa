@@ -20,17 +20,17 @@ CreateDownload inserts a new download row in "queued" status.
 	(service layer) is responsible for that, matching the
 	downloads_identity_check constraint on the table itself.
 */
-func CreateDownload(ctx context.Context, userID, anonID *string, ipAddress, url, platform string) (*model.Download, error) {
+func CreateDownload(ctx context.Context, userID, anonID *string, ipAddress, url, platform, usagePeriod string) (*model.Download, error) {
 	query := `
-		INSERT INTO downloads (user_id, anon_id, ip_address, url, platform, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, user_id, anon_id, ip_address, url, platform, status, file_path, error, created_at, completed_at
+		INSERT INTO downloads (user_id, anon_id, ip_address, url, platform, status, usage_period)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, user_id, anon_id, ip_address, url, platform, status, file_path, error, usage_period, created_at, completed_at
 	`
 
 	var d model.Download
-	err := db.Pool.QueryRow(ctx, query, userID, anonID, ipAddress, url, platform, model.StatusQueued).Scan(
+	err := db.Pool.QueryRow(ctx, query, userID, anonID, ipAddress, url, platform, model.StatusQueued, usagePeriod).Scan(
 		&d.ID, &d.UserID, &d.AnonID, &d.IPAddress, &d.URL, &d.Platform,
-		&d.Status, &d.FilePath, &d.Error, &d.CreatedAt, &d.CompletedAt,
+		&d.Status, &d.FilePath, &d.Error, &d.UsagePeriod, &d.CreatedAt, &d.CompletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ GetDownloadByID is used by GET /api/downloads/:id to poll status.
 */
 func GetDownloadByID(ctx context.Context, id string) (*model.Download, error) {
 	query := `
-		SELECT id, user_id, anon_id, ip_address, url, platform, status, file_path, error, created_at, completed_at
+		SELECT id, user_id, anon_id, ip_address, url, platform, status, file_path, error, usage_period, created_at, completed_at
 		FROM downloads
 		WHERE id = $1
 	`
@@ -51,7 +51,7 @@ func GetDownloadByID(ctx context.Context, id string) (*model.Download, error) {
 	var d model.Download
 	err := db.Pool.QueryRow(ctx, query, id).Scan(
 		&d.ID, &d.UserID, &d.AnonID, &d.IPAddress, &d.URL, &d.Platform,
-		&d.Status, &d.FilePath, &d.Error, &d.CreatedAt, &d.CompletedAt,
+		&d.Status, &d.FilePath, &d.Error, &d.UsagePeriod, &d.CreatedAt, &d.CompletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

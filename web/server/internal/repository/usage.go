@@ -33,6 +33,16 @@ func IncrementUsage(ctx context.Context, identityKey, period string, limit int) 
 	return count, nil
 }
 
+func DecrementUsage(ctx context.Context, identityKey, period string) error {
+	query := `
+		UPDATE usage_counters
+		SET count = GREATEST(count - 1, 0)
+		WHERE identity_key = $1 AND period = $2
+	`
+	_, err := db.Pool.Exec(ctx, query, identityKey, period)
+	return err
+}
+
 func GetUsage(ctx context.Context, identityKey, period string) (int, error) {
 	query := `SELECT count FROM usage_counters WHERE identity_key = $1 AND period = $2`
 

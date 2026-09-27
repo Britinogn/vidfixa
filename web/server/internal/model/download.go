@@ -21,6 +21,7 @@ type Download struct {
 	Status      string     `db:"status" json:"status"`
 	FilePath    *string    `db:"file_path" json:"file_path,omitempty"`
 	Error       *string    `db:"error" json:"error,omitempty"`
+	UsagePeriod *string    `db:"usage_period" json:"-"` // internal only — the exact period key incremented at creation, used to refund correctly on failure
 	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
 	CompletedAt *time.Time `db:"completed_at" json:"completed_at,omitempty"`
 }

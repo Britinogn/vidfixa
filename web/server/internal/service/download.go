@@ -112,7 +112,7 @@ func (s *DownloadService) Create(ctx context.Context, identity Identity, ipAddre
 		return nil, err
 	}
 
-	record, err := repository.CreateDownload(ctx, identity.UserID, identity.AnonID, ipAddress, url, platform)
+	record, err := repository.CreateDownload(ctx, identity.UserID, identity.AnonID, ipAddress, url, platform, usagePeriod)
 	if err != nil {
 		return nil, err
 	}

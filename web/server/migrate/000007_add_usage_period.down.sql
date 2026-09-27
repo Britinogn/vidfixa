@@ -1,0 +1,1 @@
+ALTER TABLE downloads DROP COLUMN usage_period;

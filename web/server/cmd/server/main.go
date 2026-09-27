@@ -24,6 +24,7 @@ import (
 	"gitlab.com/britinogn/vidfixa/internal/routes"
 	"gitlab.com/britinogn/vidfixa/internal/service"
 	"gitlab.com/britinogn/vidfixa/internal/worker"
+	"gitlab.com/britinogn/vidfixa/pkg/utils"
 )
 
 type handlers struct {
@@ -102,6 +103,24 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 				nil,
 				&errMsg,
 			)
+
+			// Refund the reservation — this download never completed, so
+			// it shouldn't count against the monthly limit.
+			if record, lookupErr := repository.GetDownloadByID(context.Background(), job.ID); lookupErr == nil {
+				var identityKey string
+				if record.UserID != nil {
+					identityKey = utils.IdentityKeyForUser(*record.UserID)
+				} else if record.AnonID != nil {
+					identityKey = utils.IdentityKeyForAnon(*record.AnonID)
+				}
+				if identityKey != "" && record.UsagePeriod != nil {
+					if refundErr := repository.DecrementUsage(context.Background(), identityKey, *record.UsagePeriod); refundErr != nil {
+						log.Printf("job %s: failed to refund usage: %v", job.ID, refundErr)
+					}
+				}
+			} else {
+				log.Printf("job %s: failed to look up download for refund: %v", job.ID, lookupErr)
+			}
 
 			return err
 		}
