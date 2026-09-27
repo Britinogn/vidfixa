@@ -77,12 +77,20 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 	}
 
 	// --- Subscription ---
+	// subscriptionService := service.NewSubscriptionService(
+	// 	bachsClient,
+	// 	cfg.BachsPlusProductID,
+	// 	cfg.BachsProProductID,
+	// 	cfg.AppURL+"/subscription/success",
+	// 	cfg.AppURL+"/subscription/cancel",
+	// )
+	
 	subscriptionService := service.NewSubscriptionService(
 		bachsClient,
 		cfg.BachsPlusProductID,
 		cfg.BachsProProductID,
-		cfg.AppURL+"/subscription/success",
-		cfg.AppURL+"/subscription/cancel",
+		cfg.BachsSuccessURL,
+		cfg.BachsCancelURL,
 	)
 
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)

@@ -3,6 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log"
+
 	// "log"
 	"net/http"
 
@@ -64,7 +66,7 @@ func (h *SubscriptionHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 
 	checkoutURL, err := h.subscriptionService.CreateCheckout(r.Context(), user.ID, user.Email, req.Tier)
 	if err != nil {
-		// log.Printf("checkout error: %v", err)
+		log.Printf("checkout error: %v", err)
 
 		switch {
 		case errors.Is(err, service.ErrInvalidTier):
