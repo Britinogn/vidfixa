@@ -24,7 +24,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Install yt-dlp
-RUN pip install --no-cache-dir yt-dlp
+# RUN pip install --no-cache-dir yt-dlp
+RUN pip install --no-cache-dir yt-dlp==2026.08.19
 
 # Copy Go application
 COPY --from=builder /app/app .
