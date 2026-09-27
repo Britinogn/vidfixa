@@ -24,7 +24,6 @@ import (
 	"gitlab.com/britinogn/vidfixa/internal/routes"
 	"gitlab.com/britinogn/vidfixa/internal/service"
 	"gitlab.com/britinogn/vidfixa/internal/worker"
-	"gitlab.com/britinogn/vidfixa/pkg/utils"
 )
 
 type handlers struct {
@@ -36,6 +35,16 @@ type handlers struct {
 	dashboard    *handler.DashboardHandler
 	admin        *handler.AdminHandler
 }
+
+/*
+staleDownloadWindow decides which non-terminal downloads are assumed dead
+at startup. It must exceed the per-job timeout in worker/pool.go, otherwise
+a job that is still legitimately running on a previous instance would be
+marked failed and refunded while it writes to.
+
+Five minutes of headroom over the 30-minute job timeout.
+*/
+const staleDownloadWindow = 35 * time.Minute
 
 /*
 initHandlers wires services, the worker pool, and handlers together.
@@ -96,30 +105,25 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 			// Store a human-readable error for the user.
 			errMsg = downloader.HumanizeError(err)
 
-			_ = repository.UpdateDownloadStatus(
+			/*
+				Release the reserved usage slot.
+
+				Refunding here rather than at request time keeps the
+				plan limit enforced atomically while the job is in
+				flight, so concurrent requests can't both pass the
+				limit check. A job that never completes hands its slot
+				back here instead.
+
+				The refund is idempotent and transactional, so a retry
+				or a restart recovery hitting the same row is harmless.
+			*/
+			if _, refundErr := repository.RefundFailedDownload(
 				context.Background(),
 				job.ID,
 				model.StatusFailed,
-				nil,
 				&errMsg,
-			)
-
-			// Refund the reservation — this download never completed, so
-			// it shouldn't count against the monthly limit.
-			if record, lookupErr := repository.GetDownloadByID(context.Background(), job.ID); lookupErr == nil {
-				var identityKey string
-				if record.UserID != nil {
-					identityKey = utils.IdentityKeyForUser(*record.UserID)
-				} else if record.AnonID != nil {
-					identityKey = utils.IdentityKeyForAnon(*record.AnonID)
-				}
-				if identityKey != "" && record.UsagePeriod != nil {
-					if refundErr := repository.DecrementUsage(context.Background(), identityKey, *record.UsagePeriod); refundErr != nil {
-						log.Printf("job %s: failed to refund usage: %v", job.ID, refundErr)
-					}
-				}
-			} else {
-				log.Printf("job %s: failed to look up download for refund: %v", job.ID, lookupErr)
+			); refundErr != nil {
+				log.Printf("job %s: failed to refund usage: %v", job.ID, refundErr)
 			}
 
 			return err
@@ -170,7 +174,7 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 }
 
 func main() {
-	db.Init() 
+	db.Init()
 	cfg := config.Load()
 
 	_, err := db.ConnectPostgres(context.Background(), cfg)
@@ -179,6 +183,28 @@ func main() {
 	}
 	defer db.Close()
 	log.Println("✓ Database connected successfully")
+
+	/*
+		Reconcile downloads orphaned by a previous crash.
+
+		The jobs channel is in-memory only, so a kill or restart leaves
+		rows stuck at queued/processing holding a reserved usage slot
+		that nothing will ever release. Anything older than the job
+		timeout in worker/pool.go is definitionally dead, so mark it
+		failed and hand the slot back before serving any traffic.
+
+		Recovery runs before the worker pool starts, so a row reclaimed
+		here can never be picked up twice.
+	*/
+	recovered, err := repository.RecoverStaleDownloads(context.Background(), time.Now().Add(-staleDownloadWindow))
+	if err != nil {
+		// Non-fatal: the server should still come up. A failure here
+		// only means some abandoned rows keep their reservation until
+		// the next restart.
+		log.Printf("stale download recovery failed: %v", err)
+	} else if recovered > 0 {
+		log.Printf("recovered %d download(s) abandoned by a previous run", recovered)
+	}
 
 	h, pool := initHandlers(cfg)
 

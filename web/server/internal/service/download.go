@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 
 	"gitlab.com/britinogn/vidfixa/internal/downloader"
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	ErrInvalidURL   = errors.New("invalid or missing url")
+	ErrInvalidURL = errors.New("invalid or missing url")
 	// ErrLimitReached = errors.New("monthly download limit reached")
 	ErrLimitReached = errors.New("monthly download limit reached. Upgrade your plan to continue.")
 	ErrQueueFull    = errors.New("server is busy, try again shortly")
@@ -114,12 +115,28 @@ func (s *DownloadService) Create(ctx context.Context, identity Identity, ipAddre
 
 	record, err := repository.CreateDownload(ctx, identity.UserID, identity.AnonID, ipAddress, url, platform, usagePeriod)
 	if err != nil {
+		/*
+			The reservation above is released here. There is no row to
+			refund against, so this uses the identity key and period
+			already resolved above rather than looking the download up.
+		*/
+		if refundErr := repository.DecrementUsage(ctx, identity.key(), usagePeriod); refundErr != nil {
+			log.Printf("release usage for unrecorded download: %v", refundErr)
+		}
 		return nil, err
 	}
 
+	/*
+		Queue full: the job will never run, so the slot is given back via
+		RefundFailedDownload, which marks the row terminal and decrements
+		exactly once. Decrementing here directly would double-release if
+		the row were ever revisited.
+	*/
 	if ok := s.jobs.Submit(url, record.ID); !ok {
 		errMsg := "queue full"
-		_ = repository.UpdateDownloadStatus(ctx, record.ID, model.StatusFailed, nil, &errMsg)
+		if _, refundErr := repository.RefundFailedDownload(ctx, record.ID, model.StatusFailed, &errMsg); refundErr != nil {
+			log.Printf("release usage for queue-full download %s: %v", record.ID, refundErr)
+		}
 		return nil, ErrQueueFull
 	}
 
