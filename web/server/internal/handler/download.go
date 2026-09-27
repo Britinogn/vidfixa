@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -13,7 +14,16 @@ import (
 	"gitlab.com/britinogn/vidfixa/internal/model"
 	"gitlab.com/britinogn/vidfixa/internal/repository"
 	"gitlab.com/britinogn/vidfixa/internal/service"
+	"gitlab.com/britinogn/vidfixa/pkg/utils"
 )
+
+// fileTicketResponse hands the client a temporary, signed URL it can stream
+// from directly. Path is relative to the API base so the client can prefix
+// its own configured host.
+type fileTicketResponse struct {
+	Path      string `json:"path"`
+	ExpiresIn int    `json:"expires_in"`
+}
 
 type DownloadHandler struct {
 	downloadService *service.DownloadService
@@ -112,13 +122,19 @@ func (h *DownloadHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-File handles GET /api/downloads/:id/file — streams the completed
-video back to whichever identity created it. Reuses the same
-Get() owner-check as the status endpoint, so a non-owner gets the
-same 404 here too, not a separate leak of "this download exists but
-isn't yours."
+FileTicket handles GET /api/downloads/:id/file-ticket.
+
+The caller must already be the owner (same identity check as Get), and the
+download must be completed. In exchange it gets a short-lived signed URL it
+can hand straight to the browser as a src/href.
+
+That is what makes streaming possible: a <video> or a download link cannot
+carry an Authorization header, so without a ticket the client had no choice
+but to pull the whole file into a JS blob — which crashes mobile browsers on
+real-sized videos. The ticket is bound to this one id and expires in minutes,
+so it grants nothing beyond the access the caller already proved.
 */
-func (h *DownloadHandler) File(w http.ResponseWriter, r *http.Request) {
+func (h *DownloadHandler) FileTicket(w http.ResponseWriter, r *http.Request) {
 	identity, ok := resolveIdentity(r)
 	if !ok {
 		http.Error(w, "unable to identify request", http.StatusBadRequest)
@@ -136,6 +152,87 @@ func (h *DownloadHandler) File(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 		return
+	}
+
+	if record.Status != model.StatusCompleted || record.FilePath == nil {
+		http.Error(w, "download is not ready yet", http.StatusConflict)
+		return
+	}
+
+	ticket, err := utils.SignDownloadTicket(id)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	query := url.Values{}
+	query.Set("ticket", ticket)
+	// A preview needs the bytes rendered by the browser; a save needs them
+	// written to disk with a filename. Same endpoint, different disposition.
+	if r.URL.Query().Get("inline") == "true" {
+		query.Set("disposition", "inline")
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(fileTicketResponse{
+		Path:      "/downloads/" + id + "/file?" + query.Encode(),
+		ExpiresIn: utils.DownloadTicketTTLSeconds,
+	})
+}
+
+/*
+File handles GET /api/downloads/:id/file — streams the completed
+video back to whichever identity created it. Reuses the same
+Get() owner-check as the status endpoint, so a non-owner gets the
+same 404 here too, not a separate leak of "this download exists but
+isn't yours."
+
+Two ways in:
+ 1. ?ticket=... — already authorized by FileTicket, verified here.
+ 2. no ticket   — the original cookie/bearer identity check.
+*/
+func (h *DownloadHandler) File(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var record *model.Download
+
+	if ticket := r.URL.Query().Get("ticket"); ticket != "" {
+		if !utils.VerifyDownloadTicket(id, ticket) {
+			http.Error(w, "download not found", http.StatusNotFound)
+			return
+		}
+
+		// The ticket already proved ownership for this exact id, so the
+		// lookup here is by id alone.
+		var err error
+		record, err = repository.GetDownloadByID(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, repository.ErrDownloadNotFound) {
+				http.Error(w, "download not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		identity, ok := resolveIdentity(r)
+		if !ok {
+			http.Error(w, "unable to identify request", http.StatusBadRequest)
+			return
+		}
+
+		var err error
+		record, err = h.downloadService.Get(r.Context(), id, identity)
+		if err != nil {
+			switch {
+			case errors.Is(err, repository.ErrDownloadNotFound), errors.Is(err, service.ErrForbidden):
+				http.Error(w, "download not found", http.StatusNotFound)
+			default:
+				http.Error(w, "internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
 	}
 
 	if record.Status != model.StatusCompleted {
@@ -161,6 +258,10 @@ func (h *DownloadHandler) File(w http.ResponseWriter, r *http.Request) {
 	filename := filepath.Base(*record.FilePath)
 
 	w.Header().Set("Content-Type", "video/mp4")
-	w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	if r.URL.Query().Get("disposition") == "inline" {
+		w.Header().Set("Content-Disposition", `inline; filename="`+filename+`"`)
+	} else {
+		w.Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	}
 	http.ServeContent(w, r, filename, record.CreatedAt, f)
 }

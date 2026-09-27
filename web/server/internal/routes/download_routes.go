@@ -17,5 +17,6 @@ func DownloadRoutes(r chi.Router, downloadHandler *handler.DownloadHandler) {
 		r.Post("/", downloadHandler.Create)
 		r.Get("/{id}", downloadHandler.Get)
 		r.Get("/{id}/file", downloadHandler.File)
+		r.Get("/{id}/file-ticket", downloadHandler.FileTicket)
 	})
 }
