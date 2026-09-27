@@ -9,13 +9,12 @@ const plans = [
   {
     name: 'Free',
     tagline: 'For occasional downloads',
-    // price: '₦0',
-    price: '$0',
+    price: '₦0',
     limit: '10 downloads / month',
     features: [
       'No account required to start',
       'Works instantly, right from the homepage',
-      'Create a free account to keep your download history',
+      'Create an account to track usage and manage your plan',
     ],
     cta: 'Get started',
     to: undefined, // uses primaryLink
@@ -24,13 +23,12 @@ const plans = [
   {
     name: 'Plus',
     tagline: 'For regular creators',
-    // price: '₦2,500',
-    price: '$2',
+    price: '₦2,500',
     limit: '50 downloads / month',
     features: [
       'Everything in Free',
       '5x the monthly download limit',
-      'Full download history saved to your account',
+      'Download history saved on this device',
     ],
     cta: 'Choose Plus',
     to: '/register',
@@ -39,8 +37,7 @@ const plans = [
   {
     name: 'Pro',
     tagline: 'For power users',
-    // price: '₦5,000',
-    price: '$4',
+    price: '₦5,000',
     limit: '200 downloads / month',
     features: [
       'Everything in Plus',
@@ -111,7 +108,8 @@ const plans = [
         <ul class="mt-3 space-y-2 text-xs leading-5 text-slate-500 sm:text-sm">
           <li>• Your download limit resets every month — unused downloads don't carry over.</li>
           <li>• You can start downloading immediately without an account; sign up anytime to keep your history and unlock Plus or Pro.</li>
-          <li>• Plus and Pro are billed monthly in Dollar. Payments are processed securely — we never see or store your card details.</li>
+          <li>• Plus and Pro are billed monthly in Nigerian Naira (₦). Payments are processed securely — we never see or store your card details.</li>
+          <li>• Download history is kept in this browser. Clearing your browser data clears it too.</li>
           <li>• Cancel anytime — no long-term contract.</li>
         </ul>
       </div>

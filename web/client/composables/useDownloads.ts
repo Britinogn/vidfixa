@@ -1,11 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/vue-query'
-import type { Download } from '~/types/api'
-import { rememberDownload } from '~/utils/download-history'
+import type { Download, FileTicketResponse } from '~/types/api'
+import { getApiErrorMessage } from '~/utils/api-error'
+import { forgetDownload, readDownloadIDs, rememberDownload } from '~/utils/download-history'
+
+const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled']
 
 export function useDownloads() {
   const api = useApi()
   const auth = useAuthStore()
   const ids = useState<string[]>('download-history', () => [])
+
+  // Every cache key is scoped to whoever the data belongs to. Without this a
+  // second account on the same tab renders the first one's cached dashboard,
+  // subscription and download statuses before any request goes out.
+  const scope = computed(() => (auth.user ? `user:${auth.user.id}` : 'anonymous'))
 
   const createDownload = useMutation({
     mutationFn: (url: string) => api<Download>('/downloads/', { method: 'POST', body: { url } }),
@@ -17,31 +25,69 @@ export function useDownloads() {
 
   function useDownload(id: string) {
     return useQuery({
-      queryKey: ['download', id],
+      queryKey: computed(() => ['download', scope.value, id]),
       queryFn: () => api<Download>(`/downloads/${id}`),
-      enabled: computed(() => Boolean(id)),
+      // Wait for the stored token to load. A signed-in user's first poll would
+      // otherwise go out anonymously and be rejected as someone else's file.
+      enabled: computed(() => auth.ready && Boolean(id)),
       refetchInterval: (query) => {
+        // A rejected poll has no status to read, so treat it as final. Left
+        // out, an expired token or a 500 would retry every 2s indefinitely.
+        if (query.state.error) return false
         const status = query.state.data?.status
-        return status === 'completed' || status === 'failed' || status === 'cancelled' ? false : 2_000
+        return status && TERMINAL_STATUSES.includes(status) ? false : 2_000
       },
     })
   }
 
-  async function downloadFile(id: string) {
+  function useDownloadFile(id: string) {
     const config = useRuntimeConfig()
-    const response = await fetch(`${config.public.apiBaseUrl}/downloads/${id}/file`, {
-      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : undefined,
-      credentials: 'include',
-    })
-    if (!response.ok) throw new Error('This video is not ready to download yet.')
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `vidfixa-${id}.mp4`
-    link.click()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+    const previewUrl = ref('')
+    const previewError = ref('')
+    const saveError = ref('')
+    const opening = ref(false)
+    const saving = ref(false)
+
+    async function fileUrl(inline: boolean) {
+      const { path } = await api<FileTicketResponse>(`/downloads/${id}/file-ticket${inline ? '?inline=true' : ''}`)
+      return `${config.public.apiBaseUrl}${path}`
+    }
+
+    async function openPreview() {
+      if (opening.value || previewUrl.value) return
+      opening.value = true
+      previewError.value = ''
+      try {
+        previewUrl.value = await fileUrl(true)
+      } catch (error) {
+        previewError.value = getApiErrorMessage(error, 'Could not load the preview. Try saving the file instead.')
+      } finally {
+        opening.value = false
+      }
+    }
+
+    function closePreview() {
+      previewUrl.value = ''
+    }
+
+    async function saveFile() {
+      if (saving.value) return
+      saving.value = true
+      saveError.value = ''
+      try {
+        // Hand the file to the browser's own download manager rather than
+        // fetching it into a blob. The blob path held the entire video in
+        // memory, which is what made large files fail on phones.
+        window.location.assign(await fileUrl(false))
+      } catch (error) {
+        saveError.value = getApiErrorMessage(error, 'Could not start the download. Please try again.')
+      } finally {
+        saving.value = false
+      }
+    }
+
+    return { previewUrl, previewError, saveError, opening, saving, openPreview, closePreview, saveFile }
   }
 
-  return { ids, createDownload, useDownload, downloadFile }
+  return { ids, createDownload, useDownload, useDownloadFile, readDownloadIDs, forgetDownload }
 }

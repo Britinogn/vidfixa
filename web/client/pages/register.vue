@@ -1,4 +1,3 @@
-```vue
 <script setup lang="ts">
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
@@ -391,7 +390,6 @@ const submit = handleSubmit(async (values) => {
   );
 }
 </style>
-```
 
 This now gives **login and register the same visual system**, while the right-side content is specific to registration:
 

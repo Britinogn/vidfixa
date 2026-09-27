@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { AuthResponse, User } from '~/types/api'
+import { downloadHistoryKey } from '~/utils/download-history'
 
 const tokenKey = 'vidfixa.auth.token'
 
@@ -78,7 +79,17 @@ export const useAuthStore = defineStore('auth', {
       this.token = ''
       this.user = null
       this.ready = true
-      if (import.meta.client) localStorage.removeItem(tokenKey)
+      if (!import.meta.client) return
+
+      localStorage.removeItem(tokenKey)
+
+      // Drop everything the next account on this tab could otherwise see.
+      // Cached dashboard, subscription, admin and download-status responses
+      // outlive the session that fetched them, so a shared browser would
+      // render the previous user's data before any new request went out.
+      localStorage.removeItem(downloadHistoryKey)
+      clearNuxtState('download-history')
+      useNuxtApp().$queryClient.clear()
     },
     logout() {
       this.clearSession()

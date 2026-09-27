@@ -1,5 +1,7 @@
 const storageKey = 'vidfixa.downloads.v1'
 
+export const downloadHistoryKey = storageKey
+
 export function readDownloadIDs(): string[] {
   if (!import.meta.client) return []
   try {

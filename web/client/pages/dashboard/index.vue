@@ -6,7 +6,7 @@ import { readDownloadIDs } from '~/utils/download-history'
 definePageMeta({ layout: 'dashboard' })
 const auth = useAuthStore()
 const api = useApi()
-const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: () => api<DashboardResponse>('/dashboard/'), enabled: computed(() => auth.isAuthenticated) })
+const dashboard = useQuery({ queryKey: computed(() => ['dashboard', auth.user?.id]), queryFn: () => api<DashboardResponse>('/dashboard/'), enabled: computed(() => auth.isAuthenticated) })
 const { ids } = useDownloads()
 const greetingName = computed(() => dashboard.data.value?.user.full_name.split(' ')[0] || auth.user?.full_name.split(' ')[0] || 'there')
 onMounted(() => { if (ids.value.length === 0) ids.value = readDownloadIDs() })

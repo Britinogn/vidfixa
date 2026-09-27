@@ -39,6 +39,15 @@ export interface Download {
   completed_at?: string
 }
 
+/**
+ * Short-lived signed URL for streaming a completed file without an
+ * Authorization header. `path` is relative to the API base URL.
+ */
+export interface FileTicketResponse {
+  path: string
+  expires_in: number
+}
+
 export interface SubscriptionResponse {
   plan: PlanTier
 }

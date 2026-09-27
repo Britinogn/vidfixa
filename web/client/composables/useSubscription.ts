@@ -5,7 +5,7 @@ export function useSubscription() {
   const api = useApi()
   const auth = useAuthStore()
   const subscription = useQuery({
-    queryKey: ['subscription'],
+    queryKey: computed(() => ['subscription', auth.user?.id]),
     queryFn: () => api<SubscriptionResponse>('/subscription/'),
     enabled: computed(() => auth.isAuthenticated),
   })
