@@ -2,9 +2,11 @@
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Link01Icon, Download01Icon, ClipboardIcon } from '@hugeicons/core-free-icons'
 import { useDownloads } from '~/composables/useDownloads'
+import { getApiErrorMessage } from '~/utils/api-error'
 
 const url = ref('')
 const message = ref('')
+const isMessageError = ref(false)
 const { createDownload } = useDownloads()
 
 function clearMessage() {
@@ -17,10 +19,13 @@ async function pasteFromClipboard() {
     if (text) {
       url.value = text.trim()
       clearMessage()
+    } else {
+      message.value = 'Your clipboard is empty. Copy a video link first.'
+      isMessageError.value = true
     }
   } catch {
-    // Clipboard permission denied or unsupported — fail silently,
-    // the user can still paste manually into the field.
+    message.value = 'Could not access your clipboard. Paste the link manually instead.'
+    isMessageError.value = true
   }
 }
 
@@ -30,9 +35,10 @@ async function submit() {
     await createDownload.mutateAsync(url.value.trim())
     url.value = ''
     message.value = 'Your download is queued. We’ll keep its status in your download history.'
+    isMessageError.value = false
   } catch (error) {
-    const response = error as { data?: string | { message?: string }; message?: string }
-    message.value = typeof response.data === 'string' ? response.data : response.data?.message || response.message || 'Could not start the download. Check the link and try again.'
+    message.value = getApiErrorMessage(error, 'Could not start the download. Check the link and try again.')
+    isMessageError.value = true
   }
 }
 </script>
@@ -74,6 +80,6 @@ async function submit() {
         <HugeiconsIcon :icon="Download01Icon" :size="18" />{{ createDownload.isPending.value ? 'Starting…' : 'Download' }}
       </button>
     </div>
-    <p v-if="message" class="mt-3 text-sm" :class="createDownload.isError.value ? 'text-red-700' : 'text-green-700'" role="status">{{ message }}</p>
+    <p v-if="message" class="mt-3 text-sm" :class="isMessageError ? 'text-red-700' : 'text-green-700'" role="status">{{ message }}</p>
   </form>
 </template>

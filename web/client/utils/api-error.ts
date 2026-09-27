@@ -7,6 +7,9 @@ export function getApiErrorMessage(error: unknown, fallback: string) {
 
   // No HTTP response means the request could not reach the backend.
   if (!error.response) {
+    if (!navigator.onLine) {
+      return 'You appear to be offline. Check your internet connection and try again.'
+    }
     return 'Unable to connect to VidFixa. Please check your connection and try again.'
   }
 
