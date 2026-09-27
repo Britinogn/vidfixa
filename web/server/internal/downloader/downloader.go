@@ -21,7 +21,9 @@ func DetectPlatform(url string) (string, error) {
 		return "x", nil
 	case strings.Contains(url, "linkedin.com"), strings.Contains(url, "lnkd.in"):
 		return "linkedin", nil
-	case strings.Contains(url, "tiktok.com"), strings.Contains(url, "tiktok.com"):
+	// case strings.Contains(url, "tiktok.com"), strings.Contains(url, "tiktok.com"):
+	// 	return "tiktok", nil
+	case strings.Contains(url, "tiktok.com"), strings.Contains(url, "vt.tiktok.com"):
 		return "tiktok", nil
 	default:
 		return "", ErrUnsupportedPlatform
