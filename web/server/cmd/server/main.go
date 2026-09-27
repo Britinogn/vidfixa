@@ -60,7 +60,18 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 
 	// --- Bachs client ---
 	// bachs.WithProduction()
-	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
+	// bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
+	// if err != nil {
+	// 	log.Fatal("failed to create Bachs client:", err)
+	// }
+
+	// --- Bachs client ---
+	var bachsOpts []bachs.Option
+	if cfg.AppEnv == "production" {
+		bachsOpts = append(bachsOpts, bachs.WithProduction())
+	}
+
+	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey, bachsOpts...)
 	if err != nil {
 		log.Fatal("failed to create Bachs client:", err)
 	}
