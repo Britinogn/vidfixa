@@ -48,12 +48,21 @@ export interface FileTicketResponse {
   expires_in: number
 }
 
+export interface PendingCheckout {
+  tier: PlanTier
+  checkout_url: string
+  expires_at?: string
+}
+
 export interface SubscriptionResponse {
   plan: PlanTier
+  pending?: PendingCheckout
 }
 
 export interface CheckoutResponse {
   checkout_url: string
+  resumed?: boolean
+  expires_at?: string
 }
 
 export interface AdminOverview {
