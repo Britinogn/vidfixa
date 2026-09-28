@@ -62,39 +62,39 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 	authHandler := handler.NewAuthHandler(authService)
 
 	// --- Bachs client ---
-	bachs.WithProduction()
-	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
-	if err != nil {
-		log.Fatal("failed to create Bachs client:", err)
-	}
-
-	// --- Bachs client ---
-	// var bachsOpts []bachs.Option
-	// if cfg.AppEnv == "production" {
-	// 	bachsOpts = append(bachsOpts, bachs.WithProduction())
-	// }
-
-	// bachsClient, err := bachs.NewClient(cfg.BachsAPIKey, bachsOpts...)
+	// bachs.WithProduction()
+	// bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
 	// if err != nil {
 	// 	log.Fatal("failed to create Bachs client:", err)
 	// }
 
-	// --- Subscription ---
-	subscriptionService := service.NewSubscriptionService(
-		bachsClient,
-		cfg.BachsPlusProductID,
-		cfg.BachsProProductID,
-		cfg.AppURL+"/subscription/success",
-		cfg.AppURL+"/subscription/cancel",
-	)
+	// --- Bachs client ---
+	var bachsOpts []bachs.Option
+	if cfg.AppEnv == "production" {
+		bachsOpts = append(bachsOpts, bachs.WithProduction())
+	}
 
+	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey, bachsOpts...)
+	if err != nil {
+		log.Fatal("failed to create Bachs client:", err)
+	}
+
+	// --- Subscription ---
 	// subscriptionService := service.NewSubscriptionService(
 	// 	bachsClient,
 	// 	cfg.BachsPlusProductID,
 	// 	cfg.BachsProProductID,
-	// 	cfg.BachsSuccessURL,
-	// 	cfg.BachsCancelURL,
+	// 	cfg.AppURL+"/subscription/success",
+	// 	cfg.AppURL+"/subscription/cancel",
 	// )
+
+	subscriptionService := service.NewSubscriptionService(
+		bachsClient,
+		cfg.BachsPlusProductID,
+		cfg.BachsProProductID,
+		cfg.BachsSuccessURL,
+		cfg.BachsCancelURL,
+	)
 
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
 
