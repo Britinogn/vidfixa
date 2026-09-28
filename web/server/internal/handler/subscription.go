@@ -39,9 +39,28 @@ func (h *SubscriptionHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 	tier := h.subscriptionService.GetCurrentPlan(r.Context(), user.ID)
 
+	var pending *model.PendingCheckoutResponse
+	if row, err := h.subscriptionService.GetPendingCheckout(r.Context(), user.ID); err == nil && row != nil {
+		pending = &model.PendingCheckoutResponse{
+			Tier:        row.Plan,
+			CheckoutURL: stringOrEmpty(row.CheckoutURL),
+			ExpiresAt:   row.CheckoutExpiresAt,
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"plan": string(tier)})
+	_ = json.NewEncoder(w).Encode(model.SubscriptionStatusResponse{
+		Plan:    string(tier),
+		Pending: pending,
+	})
+}
+
+func stringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 /*
@@ -64,7 +83,7 @@ func (h *SubscriptionHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checkoutURL, err := h.subscriptionService.CreateCheckout(r.Context(), user.ID, user.Email, req.Tier)
+	checkout, err := h.subscriptionService.CreateCheckout(r.Context(), user.ID, user.Email, req.Tier)
 	if err != nil {
 		log.Printf("checkout error: %v", err)
 
@@ -86,7 +105,5 @@ func (h *SubscriptionHandler) Checkout(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(model.CheckoutResponse{
-		CheckoutURL: checkoutURL,
-	})
+	_ = json.NewEncoder(w).Encode(checkout)
 }

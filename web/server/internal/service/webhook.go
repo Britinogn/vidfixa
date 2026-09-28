@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"strings"
@@ -152,6 +153,9 @@ func (s *WebhookService) HandleWebhook(ctx context.Context, rawBody []byte, sign
 	case bachs.EventTypeCustomerSubscriptionCreated:
 		err = s.handleSubscriptionCreated(ctx, envelope.Data)
 
+	case bachs.EventTypeCheckoutExpired:
+		err = s.handleCheckoutExpired(ctx, envelope.Data)
+
 	default:
 		err = nil
 	}
@@ -214,7 +218,11 @@ func (s *WebhookService) handleCollectionSucceeded(ctx context.Context, data jso
 			if !errors.Is(err, repository.ErrSubscriptionNotFound) {
 				return err
 			}
-		} else {
+		} else if subscription.Status == "pending" || subscription.Status == "active" {
+			// Only a live row may own a payment. A reference to a
+			// cancelled or expired pending is a stale session paying
+			// late — record the money, but never let it resurrect or
+			// steer that dead row.
 			subscriptionID = &subscription.ID
 		}
 	}
@@ -300,6 +308,38 @@ func (s *WebhookService) handleSubscriptionCreated(ctx context.Context, data jso
 		return fmt.Errorf("pending plan %s does not match confirmed plan %s", pending.Plan, plan)
 	}
 
+	/*
+		Bind the activation to the exact checkout session that was paid,
+		not just "newest pending row with this plan". A delayed or
+		redelivered event for an abandoned checkout must never activate
+		or overwrite a newer pending row: the provider is asked whether
+		the session behind this row actually completed, and whether it
+		carries this row's reference.
+	*/
+	if pending.ProviderCheckoutID != nil {
+		session, _, err := s.bachsClient.Checkouts.Get(ctx, *pending.ProviderCheckoutID)
+		if err != nil {
+			return fmt.Errorf("could not verify checkout session for activation: %w", err)
+		}
+
+		// Temporary diagnostic: logs only the session status and whether
+		// its reference matches our pending row — no secrets, no PII.
+		// Remove once the production status values are confirmed.
+		referenceMatch := session.Reference == nil || *session.Reference == pending.ID
+		log.Printf("activating pending %s: checkout session status=%q reference_match=%v", pending.ID, session.Status, referenceMatch)
+
+		// The provider returns lowercase statuses ("completed"); the SDK
+		// comments claim uppercase. Compare case-insensitively so a
+		// casing difference can never silently block activation again.
+		if !strings.EqualFold(session.Status, "COMPLETED") {
+			return fmt.Errorf("checkout session %s is %s, not completed", *pending.ProviderCheckoutID, session.Status)
+		}
+
+		if !referenceMatch {
+			return fmt.Errorf("checkout session reference does not match pending subscription %s", pending.ID)
+		}
+	}
+
 	expiresAt, err := time.Parse(time.RFC3339, payload.CurrentPeriodEnd)
 	if err != nil {
 		return fmt.Errorf("invalid current_period_end: %w", err)
@@ -356,4 +396,92 @@ func (s *WebhookService) handleSubscriptionCreated(ctx context.Context, data jso
 		payload.SubscriptionID,
 		expiresAt,
 	)
+}
+
+/*
+handleCheckoutExpired retires the local pending row when the provider
+says its checkout session died without payment. The payload is decoded
+defensively — only fields actually present are used — and the row is
+looked up by exact session match, so an expired event for an old
+checkout can never touch a newer pending row.
+
+Rows already active, cancelled, or expired are left alone: the handler
+is idempotent, and a redelivered event is a no-op rather than an error.
+*/
+func (s *WebhookService) handleCheckoutExpired(ctx context.Context, data json.RawMessage) error {
+	var payload struct {
+		CheckoutID string `json:"checkout_id"`
+		Reference  string `json:"reference"`
+		Status     string `json:"status"`
+		Customer   struct {
+			Email string `json:"email"`
+		} `json:"customer"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return err
+	}
+
+	if payload.CheckoutID != "" {
+		row, err := repository.GetSubscriptionByProviderCheckoutID(ctx, payload.CheckoutID)
+		if err != nil {
+			if errors.Is(err, repository.ErrSubscriptionNotFound) {
+				return nil
+			}
+			return err
+		}
+
+		if row.Status != "pending" {
+			return nil
+		}
+
+		// Confirm with the provider before retiring the row: a forged
+		// shape can't hurt (signature already verified), but a stale
+		// event for a session that has since completed must not win.
+		session, _, err := s.bachsClient.Checkouts.Get(ctx, payload.CheckoutID)
+		if err != nil {
+			return fmt.Errorf("could not verify expired checkout session: %w", err)
+		}
+
+		if strings.EqualFold(session.Status, "OPEN") || strings.EqualFold(session.Status, "COMPLETED") {
+			return nil
+		}
+
+		return repository.ExpirePendingSubscription(ctx, row.ID)
+	}
+
+	// No session ID in the payload: fall back to the local reference the
+	// checkout was created with, scoped to the event's customer.
+	if payload.Reference == "" || payload.Customer.Email == "" {
+		return nil
+	}
+
+	user, err := repository.GetUserByEmail(ctx, payload.Customer.Email)
+	if err != nil {
+		return fmt.Errorf("no matching user for checkout webhook: %w", err)
+	}
+
+	row, err := repository.GetSubscriptionByIDAndUser(ctx, payload.Reference, user.ID)
+	if err != nil {
+		if errors.Is(err, repository.ErrSubscriptionNotFound) {
+			return nil
+		}
+		return err
+	}
+
+	if row.Status != "pending" {
+		return nil
+	}
+
+	if row.ProviderCheckoutID != nil {
+		session, _, err := s.bachsClient.Checkouts.Get(ctx, *row.ProviderCheckoutID)
+		if err != nil {
+			return fmt.Errorf("could not verify expired checkout session: %w", err)
+		}
+
+		if strings.EqualFold(session.Status, "OPEN") || strings.EqualFold(session.Status, "COMPLETED") {
+			return nil
+		}
+	}
+
+	return repository.ExpirePendingSubscription(ctx, row.ID)
 }

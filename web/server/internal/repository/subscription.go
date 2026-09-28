@@ -81,6 +81,9 @@ func GetPendingSubscription(ctx context.Context, userID string) (*model.Subscrip
 			provider_subscription_id,
 			started_at,
 			expires_at,
+			provider_checkout_id,
+			checkout_url,
+			checkout_expires_at,
 			created_at,
 			updated_at
 		FROM subscriptions
@@ -99,6 +102,9 @@ func GetPendingSubscription(ctx context.Context, userID string) (*model.Subscrip
 		&s.ProviderSubscriptionID,
 		&s.StartedAt,
 		&s.ExpiresAt,
+		&s.ProviderCheckoutID,
+		&s.CheckoutURL,
+		&s.CheckoutExpiresAt,
 		&s.CreatedAt,
 		&s.UpdatedAt,
 	)
@@ -221,6 +227,169 @@ func CancelPendingSubscription(ctx context.Context, subscriptionID string) error
 
 	_, err := db.Pool.Exec(ctx, query, subscriptionID)
 	return err
+}
+
+/*
+SetCheckoutSession attaches the provider's checkout session to a pending
+row right after the session is created. The row keeps blocking retries
+until this metadata lands, so a crash between provider creation and this
+update can only ever leave one open provider session, never two — the
+next attempt reconciles this same row instead of creating a new one.
+*/
+func SetCheckoutSession(ctx context.Context, subscriptionID, providerCheckoutID, checkoutURL string, expiresAt time.Time) error {
+	query := `
+		UPDATE subscriptions
+		SET
+			provider_checkout_id = $2,
+			checkout_url = $3,
+			checkout_expires_at = $4,
+			updated_at = now()
+		WHERE id = $1
+			AND status = 'pending'
+	`
+
+	commandTag, err := db.Pool.Exec(ctx, query, subscriptionID, providerCheckoutID, checkoutURL, expiresAt)
+	if err != nil {
+		return err
+	}
+
+	if commandTag.RowsAffected() != 1 {
+		return ErrSubscriptionNotFound
+	}
+
+	return nil
+}
+
+/*
+ExpirePendingSubscription retires a pending row whose provider session is
+confirmed over — expired, cancelled, or completed elsewhere. Expired (not
+cancelled) keeps the reason visible: the user walked away or the clock ran
+out, nothing was ever charged.
+*/
+func ExpirePendingSubscription(ctx context.Context, subscriptionID string) error {
+	query := `
+		UPDATE subscriptions
+		SET
+			status = 'expired',
+			updated_at = now()
+		WHERE id = $1
+			AND status = 'pending'
+	`
+
+	_, err := db.Pool.Exec(ctx, query, subscriptionID)
+	return err
+}
+
+/*
+GetSubscriptionByProviderCheckoutID finds whichever row a provider checkout
+session belongs to. Webhook payloads identify the session, not our row, so
+this is the exact-match lookup that keeps a delayed event for an old
+checkout from ever touching a newer pending row.
+*/
+func GetSubscriptionByProviderCheckoutID(ctx context.Context, providerCheckoutID string) (*model.Subscription, error) {
+	query := `
+		SELECT
+			id,
+			user_id,
+			plan,
+			status,
+			provider_subscription_id,
+			started_at,
+			expires_at,
+			provider_checkout_id,
+			checkout_url,
+			checkout_expires_at,
+			created_at,
+			updated_at
+		FROM subscriptions
+		WHERE provider_checkout_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var s model.Subscription
+	err := db.Pool.QueryRow(ctx, query, providerCheckoutID).Scan(
+		&s.ID,
+		&s.UserID,
+		&s.Plan,
+		&s.Status,
+		&s.ProviderSubscriptionID,
+		&s.StartedAt,
+		&s.ExpiresAt,
+		&s.ProviderCheckoutID,
+		&s.CheckoutURL,
+		&s.CheckoutExpiresAt,
+		&s.CreatedAt,
+		&s.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSubscriptionNotFound
+		}
+		return nil, err
+	}
+
+	return &s, nil
+}
+
+/*
+ListStalePendingCheckouts returns pending rows whose recorded provider
+expiry has passed. The sweeper verifies each one against the provider
+before expiring it, so a missed checkout.expired delivery can never leave
+a user blocked.
+*/
+func ListStalePendingCheckouts(ctx context.Context, limit int) ([]model.Subscription, error) {
+	query := `
+		SELECT
+			id,
+			user_id,
+			plan,
+			status,
+			provider_subscription_id,
+			started_at,
+			expires_at,
+			provider_checkout_id,
+			checkout_url,
+			checkout_expires_at,
+			created_at,
+			updated_at
+		FROM subscriptions
+		WHERE status = 'pending'
+			AND checkout_expires_at IS NOT NULL
+			AND checkout_expires_at < now()
+		ORDER BY checkout_expires_at ASC
+		LIMIT $1
+	`
+
+	rows, err := db.Pool.Query(ctx, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []model.Subscription
+	for rows.Next() {
+		var s model.Subscription
+		if err := rows.Scan(
+			&s.ID,
+			&s.UserID,
+			&s.Plan,
+			&s.Status,
+			&s.ProviderSubscriptionID,
+			&s.StartedAt,
+			&s.ExpiresAt,
+			&s.ProviderCheckoutID,
+			&s.CheckoutURL,
+			&s.CheckoutExpiresAt,
+			&s.CreatedAt,
+			&s.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+
+	return out, rows.Err()
 }
 
 /*

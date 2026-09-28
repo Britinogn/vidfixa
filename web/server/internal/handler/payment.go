@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	"gitlab.com/britinogn/vidfixa/internal/service"
@@ -52,6 +53,7 @@ func (h *PaymentHandler) Webhook(w http.ResponseWriter, r *http.Request) {
 			out again after the pending-subscription failure is fixed.
 		*/
 		// log.Printf("webhook processing error: %v", err)
+		log.Printf("webhook processing error: %v", err)
 
 		switch {
 		case errors.Is(err, service.ErrInvalidSignature):

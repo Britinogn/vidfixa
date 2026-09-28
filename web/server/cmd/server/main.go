@@ -34,6 +34,9 @@ type handlers struct {
 	payment      *handler.PaymentHandler
 	dashboard    *handler.DashboardHandler
 	admin        *handler.AdminHandler
+	// subscriptions carries the service (not just the handler) so main
+	// can run the stale-checkout sweeper without re-wiring dependencies.
+	subscriptions *service.SubscriptionService
 }
 
 /*
@@ -59,39 +62,39 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 	authHandler := handler.NewAuthHandler(authService)
 
 	// --- Bachs client ---
-	// bachs.WithProduction()
-	// bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
-	// if err != nil {
-	// 	log.Fatal("failed to create Bachs client:", err)
-	// }
-
-	// --- Bachs client ---
-	var bachsOpts []bachs.Option
-	if cfg.AppEnv == "production" {
-		bachsOpts = append(bachsOpts, bachs.WithProduction())
-	}
-
-	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey, bachsOpts...)
+	bachs.WithProduction()
+	bachsClient, err := bachs.NewClient(cfg.BachsAPIKey)
 	if err != nil {
 		log.Fatal("failed to create Bachs client:", err)
 	}
 
+	// --- Bachs client ---
+	// var bachsOpts []bachs.Option
+	// if cfg.AppEnv == "production" {
+	// 	bachsOpts = append(bachsOpts, bachs.WithProduction())
+	// }
+
+	// bachsClient, err := bachs.NewClient(cfg.BachsAPIKey, bachsOpts...)
+	// if err != nil {
+	// 	log.Fatal("failed to create Bachs client:", err)
+	// }
+
 	// --- Subscription ---
-	// subscriptionService := service.NewSubscriptionService(
-	// 	bachsClient,
-	// 	cfg.BachsPlusProductID,
-	// 	cfg.BachsProProductID,
-	// 	cfg.AppURL+"/subscription/success",
-	// 	cfg.AppURL+"/subscription/cancel",
-	// )
-	
 	subscriptionService := service.NewSubscriptionService(
 		bachsClient,
 		cfg.BachsPlusProductID,
 		cfg.BachsProProductID,
-		cfg.BachsSuccessURL,
-		cfg.BachsCancelURL,
+		cfg.AppURL+"/subscription/success",
+		cfg.AppURL+"/subscription/cancel",
 	)
+
+	// subscriptionService := service.NewSubscriptionService(
+	// 	bachsClient,
+	// 	cfg.BachsPlusProductID,
+	// 	cfg.BachsProProductID,
+	// 	cfg.BachsSuccessURL,
+	// 	cfg.BachsCancelURL,
+	// )
 
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
 
@@ -182,13 +185,14 @@ func initHandlers(cfg *config.Config) (*handlers, *worker.Pool) {
 	paymentHandler := handler.NewPaymentHandler(webhookService)
 
 	return &handlers{
-		auth:         authHandler,
-		download:     downloadHandler,
-		usage:        usageHandler,
-		subscription: subscriptionHandler,
-		payment:      paymentHandler,
-		dashboard:    dashboardHandler,
-		admin:        adminHandler,
+		auth:          authHandler,
+		download:      downloadHandler,
+		usage:         usageHandler,
+		subscription:  subscriptionHandler,
+		payment:       paymentHandler,
+		dashboard:     dashboardHandler,
+		admin:         adminHandler,
+		subscriptions: subscriptionService,
 	}, pool
 }
 
@@ -226,6 +230,31 @@ func main() {
 	}
 
 	h, pool := initHandlers(cfg)
+
+	/*
+		Reconcile abandoned checkouts whose provider sessions have expired.
+
+		The checkout.expired webhook is the primary signal, but deliveries
+		can be missed. This runs once at startup and every 15 minutes after,
+		confirming each stale row against the provider before retiring it —
+		never on local clock alone.
+	*/
+	reconcileCheckouts := func() {
+		expired, err := h.subscriptions.ReconcileStalePendingCheckouts(context.Background())
+		if err != nil {
+			log.Printf("stale checkout reconciliation failed: %v", err)
+		} else if expired > 0 {
+			log.Printf("expired %d abandoned checkout(s)", expired)
+		}
+	}
+	reconcileCheckouts()
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			reconcileCheckouts()
+		}
+	}()
 
 	router := chi.NewRouter()
 	router.Use(chimw.RequestID)
