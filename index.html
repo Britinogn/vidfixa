@@ -196,6 +196,7 @@
 <!-- 
 bach cli listener command 
 bachs listen --forward-to localhost:8080/api/payments/webhook --events collection.succeeded,customer.subscription.created
+bachs listen --forward-to localhost:8080/api/payments/webhook --events collection.succeeded,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted
 
 migrate
 migrate -database "$env:DATABASE_URL" -path migrate up
