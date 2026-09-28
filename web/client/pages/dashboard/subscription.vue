@@ -38,9 +38,13 @@ onMounted(() => {
   if (route.query.checkout) subscription.refetch()
 })
 const plans: { tier: PlanTier; price: string; limit: string; description: string }[] = [
-  { tier: 'free', price: '₦0', limit: '10 downloads / month', description: 'For occasional downloads.' },
-  { tier: 'plus', price: '₦2,500', limit: '50 downloads / cycle', description: 'For regular creators.' },
-  { tier: 'pro', price: '₦5,000', limit: '200 downloads / cycle', description: 'For power users.' },
+  // Naira prices for the future NGN cutover — do not delete.
+  // { tier: 'free', price: '₦0', limit: '10 downloads / month', description: 'For occasional downloads.' },
+  // { tier: 'plus', price: '₦2,500', limit: '50 downloads / cycle', description: 'For regular creators.' },
+  // { tier: 'pro', price: '₦5,000', limit: '200 downloads / cycle', description: 'For power users.' },
+  { tier: 'free', price: '$0', limit: '10 downloads / month', description: 'For occasional downloads.' },
+  { tier: 'plus', price: '$2', limit: '50 downloads / cycle', description: 'For regular creators.' },
+  { tier: 'pro', price: '$4', limit: '200 downloads / cycle', description: 'For power users.' },
 ]
 const errorMessage = computed(() => {
   if (!checkout.error.value) return ''

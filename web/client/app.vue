@@ -13,10 +13,12 @@ useHead({
     title ? `${title} · ${siteName}` : defaultTitle,
 
   link: [
+    // SVG favicon retired — the .ico below is the live icon. Kept for reference.
     // { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-    { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' },
+    // ?v=2 cache-busts browsers that pinned the old SVG icon.
+    { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico?v=2' },
     { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32x32.png' },
-    { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16x16.png' },
+    // No favicon-16x16.png exists in public/ — the multi-size .ico covers 16px.
     { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' },
     { rel: 'manifest', href: '/site.webmanifest' },
     { rel: 'canonical', href: siteUrl },

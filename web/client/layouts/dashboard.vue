@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { Home01Icon, Download01Icon, CreditCardIcon, UserCircleIcon, Logout01Icon, PlayIcon } from '@hugeicons/core-free-icons'
+import { Home01Icon, Download01Icon, CreditCardIcon, UserCircleIcon, Logout01Icon } from '@hugeicons/core-free-icons'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -23,7 +23,7 @@ async function logout() {
   <div class="min-h-screen bg-slate-50 md:flex">
     <aside class="w-full border-b border-slate-200 bg-white px-5 py-4 md:fixed md:inset-y-0 md:flex md:w-64 md:flex-col md:border-b-0 md:border-r md:px-6 md:py-7">
       <NuxtLink to="/" class="flex items-center gap-2 text-xl font-extrabold tracking-tight">
-        <span class="grid size-9 place-items-center rounded-xl bg-brand-600 text-white"><HugeiconsIcon :icon="PlayIcon" :size="19" /></span>
+        <img src="/logo.png" alt="VidFixa logo" class="size-12 rounded-xl object-cover" />
         Vid<span class="text-brand-600">Fixa</span>
       </NuxtLink>
       <div class="mt-8 hidden text-xs font-semibold uppercase tracking-[0.12em] text-slate-400 md:block">Workspace</div>

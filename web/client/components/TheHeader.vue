@@ -17,7 +17,7 @@ function closeMenu() {
   <header
     class="fixed inset-x-0 top-0 z-50 mx-auto flex h-[76px] max-w-7xl items-center justify-between bg-[var(--color-background)] px-5 md:px-8"
   >   
-    <NuxtLink to="/" aria-label="VidFixa home" @click="closeMenu"><BrandMark /></NuxtLink>
+    <NuxtLink to="/" aria-label="VidFixa home" class="flex items-center gap-2" @click="closeMenu"><img src="/logo.png" alt="VidFixa logo" class="size-12 rounded-xl object-cover" /><span class="text-[22px] font-extrabold tracking-tight text-slate-900">Vid<span class="text-brand-600">Fixa</span></span></NuxtLink>
 
     <nav class="hidden items-center gap-10 text-sm font-medium text-slate-600 md:flex">
       <NuxtLink to="/#features" class="hover:text-slate-900">Features</NuxtLink>

@@ -6,8 +6,9 @@
       >
         <!-- Brand -->
         <div class="max-w-xs">
-          <NuxtLink to="/" aria-label="VidFixa home">
-            <BrandMark />
+          <NuxtLink to="/" aria-label="VidFixa home" class="flex items-center gap-2">
+            <img src="/logo.png" alt="VidFixa logo" class="size-12 rounded-xl object-cover" />
+            <span class="text-[22px] font-extrabold tracking-tight text-slate-900">Vid<span class="text-brand-600">Fixa</span></span>
           </NuxtLink>
 
           <p class="mt-3 text-sm leading-6 text-slate-500">
