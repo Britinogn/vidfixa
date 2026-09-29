@@ -26,7 +26,8 @@ RUN apt-get update \
 # Install yt-dlp
 # RUN pip install --no-cache-dir yt-dlp
 # RUN pip install --no-cache-dir yt-dlp==2026.08.19
-RUN pip install --no-cache-dir --upgrade yt-dlp
+RUN pip install --no-cache-dir --upgrade \ 
+    "yt-dlp[default,curl-cffi]"
 
 # Copy Go application
 COPY --from=builder /app/app .
