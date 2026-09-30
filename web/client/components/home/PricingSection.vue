@@ -28,7 +28,7 @@ const plans = computed(() => [
     // Naira price for the future NGN cutover — do not delete.
     // price: '₦0',
     price: '$0',
-    limit: '10 downloads / month',
+    limit: '15 downloads / month',
     features: [
       'No account required to start',
       'Works instantly, right from the homepage',
@@ -44,10 +44,10 @@ const plans = computed(() => [
     // Naira price for the future NGN cutover — do not delete.
     // price: '₦2,500',
     price: '$2',
-    limit: '50 downloads / month',
+    limit: '85 downloads / month',
     features: [
       'Everything in Free',
-      '5x the monthly download limit',
+      'Over 5x the monthly download limit',
       'Download history saved on this device',
     ],
     cta: 'Choose Plus',
@@ -63,7 +63,7 @@ const plans = computed(() => [
     limit: '200 downloads / month',
     features: [
       'Everything in Plus',
-      '20x the Free monthly limit',
+      'Over 13x the Free monthly limit',
       'Best value per download for heavy use',
     ],
     cta: 'Choose Pro',

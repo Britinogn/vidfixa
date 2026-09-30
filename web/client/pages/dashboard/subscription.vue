@@ -83,11 +83,11 @@ const plans: {
   description: string
 }[] = [
   // Naira prices for the future NGN cutover — do not delete.
-  // { tier: 'free', price: '₦0', limit: '10 downloads / month', description: 'For occasional downloads.' },
-  // { tier: 'plus', price: '₦2,500', limit: '50 downloads / cycle', description: 'For regular creators.' },
+  // { tier: 'free', price: '₦0', limit: '15 downloads / month', description: 'For occasional downloads.' },
+  // { tier: 'plus', price: '₦2,500', limit: '85 downloads / cycle', description: 'For regular creators.' },
   // { tier: 'pro', price: '₦5,000', limit: '200 downloads / cycle', description: 'For power users.' },
-  { tier: 'free', price: '$0', limit: '10 downloads / month', description: 'For occasional downloads.' },
-  { tier: 'plus', price: '$2', limit: '50 downloads / cycle', description: 'For regular creators.' },
+  { tier: 'free', price: '$0', limit: '15 downloads / month', description: 'For occasional downloads.' },
+  { tier: 'plus', price: '$2', limit: '85 downloads / cycle', description: 'For regular creators.' },
   { tier: 'pro', price: '$4', limit: '200 downloads / cycle', description: 'For power users.' },
 ]
 

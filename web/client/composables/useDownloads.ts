@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import type { Download, DownloadHistoryItem, FileTicketResponse } from '~/types/api'
 import { getApiErrorMessage } from '~/utils/api-error'
 import { forgetDownload, readDownloadIDs, rememberDownload } from '~/utils/download-history'
@@ -8,6 +8,7 @@ const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled']
 export function useDownloads() {
   const api = useApi()
   const auth = useAuthStore()
+  const queryClient = useQueryClient()
   const ids = useState<string[]>('download-history', () => [])
 
   // Every cache key is scoped to whoever the data belongs to. Without this a
@@ -20,6 +21,10 @@ export function useDownloads() {
     onSuccess: (download) => {
       rememberDownload(download.id)
       ids.value = [download.id, ...ids.value.filter((id) => id !== download.id)].slice(0, 20)
+      // Logged-in views render from the server list, so refetch it at once.
+      // Otherwise the new card — and its status pill — stays invisible until
+      // some unrelated refresh happens.
+      queryClient.invalidateQueries({ queryKey: ['downloads'] })
     },
   })
 
