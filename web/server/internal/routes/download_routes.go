@@ -15,6 +15,7 @@ downloads no longer require login (workme's updated plan).
 func DownloadRoutes(r chi.Router, downloadHandler *handler.DownloadHandler) {
 	r.Route("/downloads", func(r chi.Router) {
 		r.Post("/", downloadHandler.Create)
+		r.Get("/", downloadHandler.List)
 		r.Get("/{id}", downloadHandler.Get)
 		r.Get("/{id}/file", downloadHandler.File)
 		r.Get("/{id}/file-ticket", downloadHandler.FileTicket)

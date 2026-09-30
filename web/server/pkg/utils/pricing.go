@@ -27,7 +27,7 @@ type Plan struct {
 // plans is unexported — nothing outside this file reaches in and
 // mutates it. Everything else goes through GetPlan below.
 var plans = map[PlanTier]Plan{
-	PlanFree: {Name: PlanFree, MonthlyDownloadLimit: 10, Price: 0, Currency: "NGN"},
+	PlanFree: {Name: PlanFree, MonthlyDownloadLimit: 15, Price: 0, Currency: "NGN"},
 	PlanPlus: {Name: PlanPlus, MonthlyDownloadLimit: 50, Price: 2500, Currency: "NGN"},
 	PlanPro:  {Name: PlanPro, MonthlyDownloadLimit: 200, Price: 5000, Currency: "NGN"},
 }

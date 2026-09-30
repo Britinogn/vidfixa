@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -122,8 +124,56 @@ func (h *DownloadHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 /*
-FileTicket handles GET /api/downloads/:id/file-ticket.
+List handles GET /api/downloads — one page of the caller's own download
+history, newest first. Users-only: unlike the single-download endpoints
+it requires a logged-in user, because an anonymous cookie identity is
+not an account whose history can follow it across devices.
 
+Cursor pagination: pass the created_at + id of the last item of the
+previous page as before + before_id. Omitting both returns the first
+page.
+*/
+func (h *DownloadHandler) List(w http.ResponseWriter, r *http.Request) {
+	user, ok := middleware.UserFromContext(r.Context())
+	if !ok {
+		http.Error(w, "you must be logged in to view download history", http.StatusUnauthorized)
+		return
+	}
+
+	limit := 10
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			limit = parsed
+		}
+	}
+
+	var before *time.Time
+	beforeID := r.URL.Query().Get("before_id")
+	if raw := r.URL.Query().Get("before"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			before = &parsed
+		}
+	}
+
+	items, err := h.downloadService.ListForUser(r.Context(), user.ID, limit, before, beforeID)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Encode [] rather than null so the client can map over the response
+	// without a nil check.
+	if items == nil {
+		items = []model.DownloadHistoryItem{}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(items)
+}
+
+/*
+FileTicket handles GET /api/downloads/:id/file-ticket.
 The caller must already be the owner (same identity check as Get), and the
 download must be completed. In exchange it gets a short-lived signed URL it
 can hand straight to the browser as a src/href.

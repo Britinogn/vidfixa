@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -83,4 +84,51 @@ func UpdateDownloadStatus(ctx context.Context, id, status string, filePath, errM
 
 	_, err := db.Pool.Exec(ctx, query, id, status, filePath, errMsg, completedAt)
 	return err
+}
+
+/*
+ListDownloadsByUser returns one page of the user's download history,
+newest first. Pagination is keyset-based: pass the created_at + id of
+the last row of the previous page to fetch what comes after it. The
+limit is clamped here as well as in the service, so no caller can
+accidentally dump the whole table.
+*/
+func ListDownloadsByUser(ctx context.Context, userID string, limit int, beforeCreatedAt *time.Time, beforeID string) ([]model.DownloadHistoryItem, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	args := []any{userID}
+	query := `
+		SELECT id, url, platform, status, error, created_at, completed_at
+		FROM downloads
+		WHERE user_id = $1
+	`
+
+	if beforeCreatedAt != nil && beforeID != "" {
+		query += ` AND (created_at, id) < ($2, $3)`
+		args = append(args, *beforeCreatedAt, beforeID)
+	}
+
+	query += ` ORDER BY created_at DESC, id DESC LIMIT ` + strconv.Itoa(limit)
+
+	rows, err := db.Pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := []model.DownloadHistoryItem{}
+	for rows.Next() {
+		var d model.DownloadHistoryItem
+		if err := rows.Scan(&d.ID, &d.URL, &d.Platform, &d.Status, &d.Error, &d.CreatedAt, &d.CompletedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, d)
+	}
+
+	return items, rows.Err()
 }

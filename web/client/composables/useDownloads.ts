@@ -1,5 +1,5 @@
-import { useMutation, useQuery } from '@tanstack/vue-query'
-import type { Download, FileTicketResponse } from '~/types/api'
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/vue-query'
+import type { Download, DownloadHistoryItem, FileTicketResponse } from '~/types/api'
 import { getApiErrorMessage } from '~/utils/api-error'
 import { forgetDownload, readDownloadIDs, rememberDownload } from '~/utils/download-history'
 
@@ -40,8 +40,55 @@ export function useDownloads() {
     })
   }
 
-  function useDownloadFile(id: string) {
-    const config = useRuntimeConfig()
+  function useDownloadHistory(limit = 20) {
+    return useQuery({
+      queryKey: computed(() => ['downloads', 'history', scope.value, limit]),
+      queryFn: () => api<DownloadHistoryItem[]>('/downloads/', { params: { limit } }),
+      // Users-only endpoint: anonymous histories stay device-local, since an
+      // anon cookie is not an account whose history could follow it.
+      enabled: computed(() => auth.ready && auth.isAuthenticated),
+      refetchInterval: (query) => {
+        if (query.state.error) return false
+        const items = query.state.data
+        if (!items) return 5_000
+        return items.some((d) => !TERMINAL_STATUSES.includes(d.status)) ? 5_000 : false
+      },
+    })
+  }
+
+    type HistoryCursor = { before: string; before_id: string } | null
+
+  // Paged variant of useDownloadHistory for the full history view. Each
+  // page is fetched with the last item of the previous page as the cursor,
+  // which is what exercises the server's keyset pagination.
+  function useDownloadHistoryPages(limit = 10) {
+    return useInfiniteQuery({
+      queryKey: computed(() => ['downloads', 'history-pages', scope.value, limit]),
+      queryFn: ({ pageParam }: { pageParam: HistoryCursor }) =>
+        api<DownloadHistoryItem[]>('/downloads/', {
+          params: {
+            limit,
+            ...(pageParam ? { before: pageParam.before, before_id: pageParam.before_id } : {}),
+          },
+        }),
+      initialPageParam: null as HistoryCursor,
+      getNextPageParam: (lastPage) => {
+        if (lastPage.length < limit) return undefined
+        const last = lastPage[lastPage.length - 1]
+        if (!last) return undefined
+        return { before: last.created_at, before_id: last.id }
+      },
+      enabled: computed(() => auth.ready && auth.isAuthenticated),
+      refetchInterval: (query) => {
+        if (query.state.error) return false
+        const items = query.state.data?.pages.flat()
+        if (!items) return 5_000
+        return items.some((d) => !TERMINAL_STATUSES.includes(d.status)) ? 5_000 : false
+      },
+    })
+  }
+
+  function useDownloadFile(id: string) {    const config = useRuntimeConfig()
     const previewUrl = ref('')
     const previewError = ref('')
     const saveError = ref('')
@@ -89,5 +136,5 @@ export function useDownloads() {
     return { previewUrl, previewError, saveError, opening, saving, openPreview, closePreview, saveFile }
   }
 
-  return { ids, createDownload, useDownload, useDownloadFile, readDownloadIDs, forgetDownload }
+  return { ids, createDownload, useDownload, useDownloadHistory, useDownloadHistoryPages, useDownloadFile, readDownloadIDs, forgetDownload }
 }

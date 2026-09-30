@@ -41,3 +41,19 @@ const (
 	StatusFailed     = "failed"
 	StatusCancelled  = "cancelled"
 )
+
+/*
+DownloadHistoryItem is the trimmed row returned by the download-history
+list endpoint. It deliberately omits FilePath (a server-local path that
+must never reach the browser) and the internal usage/IP fields — the
+file itself is fetched through the ticketed /file endpoint instead.
+*/
+type DownloadHistoryItem struct {
+	ID          string     `db:"id" json:"id"`
+	URL         string     `db:"url" json:"url"`
+	Platform    string     `db:"platform" json:"platform"`
+	Status      string     `db:"status" json:"status"`
+	Error       *string    `db:"error" json:"error,omitempty"`
+	CreatedAt   time.Time  `db:"created_at" json:"created_at"`
+	CompletedAt *time.Time `db:"completed_at" json:"completed_at,omitempty"`
+}

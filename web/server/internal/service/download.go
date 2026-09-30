@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"gitlab.com/britinogn/vidfixa/internal/downloader"
 	"gitlab.com/britinogn/vidfixa/internal/model"
@@ -161,4 +162,21 @@ func (s *DownloadService) Get(ctx context.Context, id string, identity Identity)
 	}
 
 	return record, nil
+}
+
+/*
+ListForUser answers GET /api/downloads, returning one page of the
+user's own download history. Unlike Get, this is users-only — anonymous
+histories stay device-local by design, since an anon cookie is not an
+account you can sign into elsewhere.
+*/
+func (s *DownloadService) ListForUser(ctx context.Context, userID string, limit int, beforeCreatedAt *time.Time, beforeID string) ([]model.DownloadHistoryItem, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	return repository.ListDownloadsByUser(ctx, userID, limit, beforeCreatedAt, beforeID)
 }

@@ -40,6 +40,20 @@ export interface Download {
 }
 
 /**
+ * One row of GET /api/downloads — the caller's own history, newest first.
+ * Carries no file path: files stream through the ticketed /file endpoint.
+ */
+export interface DownloadHistoryItem {
+  id: string
+  url: string
+  platform: string
+  status: DownloadStatus
+  error?: string
+  created_at: string
+  completed_at?: string
+}
+
+/**
  * Short-lived signed URL for streaming a completed file without an
  * Authorization header. `path` is relative to the API base URL.
  */
