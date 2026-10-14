@@ -8,6 +8,7 @@ type Config struct {
 	AppPort   string
 	AppURL    string
 	CorsURL string
+	CorsExtensionURL string
 
 	DatabaseURL string
 
@@ -38,6 +39,7 @@ func Load() *Config {
 		AppPort:   os.Getenv("APP_PORT"),
 		AppURL:    os.Getenv("APP_URL"),
 		CorsURL: os.Getenv("CORS_URL"),
+		CorsExtensionURL: os.Getenv("CORS_EXTENSION_URL"),
 
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 
