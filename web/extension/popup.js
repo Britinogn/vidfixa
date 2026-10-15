@@ -1,5 +1,5 @@
 const CONFIG = {
-  API_BASE: "https://vidfixa.onrender.com/api",
+  API_BASE: "https://vidfixa-api.onrender.com/api",
   CREATE_PATH: "/downloads/",
   STATUS_PATH: (id) => `/downloads/${encodeURIComponent(id)}`,
   FILE_TICKET_PATH: (id) => `/downloads/${encodeURIComponent(id)}/file-ticket`,
@@ -36,13 +36,20 @@ async function api(path, options = {}) {
     },
   });
   const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(
+      `VidFixa returned an empty response (HTTP ${res.status}). The API must return the created download job with its ID.`,
+    );
+  }
+
   let data = null;
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { message: text.trim() };
+  try {
+    data = JSON.parse(text);
+  } catch {
+    if (res.ok) {
+      throw new Error(`VidFixa returned a non-JSON response (HTTP ${res.status}).`);
     }
+    data = { message: text.trim() };
   }
 
   if (!res.ok) {
@@ -50,17 +57,19 @@ async function api(path, options = {}) {
       throw new Error(`Monthly download limit reached (${CONFIG.FREE_MONTHLY_LIMIT} downloads on the Free plan).`);
     }
     if (res.status === 400) {
-      throw new Error("This link is invalid or unsupported. Use an Instagram, Facebook, X, or LinkedIn video link.");
+      throw new Error("This link is invalid or unsupported. Use an Instagram, Facebook, X, LinkedIn, or TikTok video link.");
     }
     if (res.status >= 500) {
       throw new Error("VidFixa is having a server problem. Please try again shortly.");
     }
     throw new Error(data?.error || data?.message || `Request failed (${res.status}).`);
   }
-  if (data === null || typeof data !== "object") {
-    throw new Error("VidFixa returned an invalid response. Please try again.");
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error(`VidFixa returned an invalid response (HTTP ${res.status}). Please try again.`);
   }
-  return data;
+  return data.data && typeof data.data === "object" && !Array.isArray(data.data)
+    ? data.data
+    : data;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -83,6 +92,8 @@ function isSupportedLink(value) {
     "twitter.com",
     "linkedin.com",
     "lnkd.in",
+    "tiktok.com",
+    "vt.tiktok.com",
   ].some((domain) => hostname === domain || hostname.endsWith(`.${domain}`));
 }
 
@@ -90,7 +101,7 @@ async function startDownload() {
   const url = urlInput.value.trim();
   if (!isSupportedLink(url)) {
     resultEl.replaceChildren();
-    setStatus("Enter a valid Instagram, Facebook, X, or LinkedIn video link.", true);
+    setStatus("Enter a valid Instagram, Facebook, X, LinkedIn, or TikTok video link.", true);
     return;
   }
 

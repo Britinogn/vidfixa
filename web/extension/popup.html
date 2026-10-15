@@ -6,12 +6,26 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <h1>VidFixa</h1>
-  <label for="url">Video link (from this tab)</label>
-  <input id="url" type="url" placeholder="https://..." />
-  <button id="go">Download</button>
-  <div id="status"></div>
-  <div id="result"></div>
+  <header class="brand">
+    <img src="icons/icon48.png" alt="" width="32" height="32" />
+    <div>
+      <h1>VidFixa</h1>
+      <p>Save videos from your current tab</p>
+    </div>
+  </header>
+
+  <main class="card">
+    <label for="url">Video link</label>
+    <input id="url" type="url" placeholder="https://..." />
+    <button id="go">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/><path d="M7 11l5 5l5-5"/><path d="M12 4v12"/></svg>
+      Download
+    </button>
+    <div id="status"></div>
+    <div id="result"></div>
+  </main>
+
+  <footer>Instagram, Facebook, X, LinkedIn, TikTok</footer>
   <script src="popup.js"></script>
 </body>
 </html>

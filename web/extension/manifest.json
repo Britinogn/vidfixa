@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Download the video on your current tab with VidFixa.",
   "permissions": ["activeTab", "storage"],
-  "host_permissions": ["https://vidfixa.onrender.com/*"],
+  "host_permissions": ["https://vidfixa-api.onrender.com/*"],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
